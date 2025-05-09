@@ -3,28 +3,40 @@ import java.util.List;
 
 public class RentalSystem {
     private Scanner scanner;
-    private VehicleDatabase vehicleDatabase;
+    private CustomLinkedList<Vehicle> vehicles;
+    private CustomLinkedList<Rental> rentals;
 
-    public RentalSystem() {
+    public RentalSystem(CustomLinkedList<Vehicle> vehicles, CustomLinkedList<Rental> rentals) {
         this.scanner = new Scanner(System.in);
-        this.vehicleDatabase = VehicleDatabase.getInstance();
+        this.vehicles = vehicles;
+        this.rentals = rentals;
     }
 
     public void startRentalProcess() {
         try {
-            System.out.println("\n=== Process Rental ===");
-            
-            // Get customer details
-            CustomerDetails customer = getCustomerDetails();
-            
-            // Show available vehicles
-            List<Vehicle> availableVehicles = vehicleDatabase.getAllVehicles();
-            if (availableVehicles.isEmpty()) {
-                System.out.println("No vehicles available for rent.");
+            if (vehicles.isEmpty()) {
+                System.out.println("\nNo vehicles available for rent.");
                 return;
             }
 
+            System.out.println("\n=== Process Rental ===");
+            
+            // Get customer details with validation
+            String customerName = getValidCustomerName();
+            String customerId = getValidCustomerId();
+            String customerPhone = getValidPhoneNumber();
+
+            // Show available vehicles
             System.out.println("\nAvailable Vehicles:");
+            List<Vehicle> availableVehicles = vehicles.toList().stream()
+                .filter(Vehicle::isAvailable)
+                .toList();
+
+            if (availableVehicles.isEmpty()) {
+                System.out.println("No vehicles are currently available.");
+                return;
+            }
+
             for (int i = 0; i < availableVehicles.size(); i++) {
                 System.out.printf("%d. %s%n", i + 1, availableVehicles.get(i));
             }
@@ -40,53 +52,68 @@ public class RentalSystem {
 
             Vehicle selectedVehicle = availableVehicles.get(vehicleIndex);
             
-            // Create and process rental
-            Rental rental = new Rental(customer, selectedVehicle);
-            boolean success = vehicleDatabase.processRental(rental);
+            // Get payment details
+            String paymentMode = getValidPaymentMode();
+            double amount = selectedVehicle.getPrice();
+
+            // Create and add rental
+            Rental rental = new Rental(customerName, customerId, customerPhone, selectedVehicle, paymentMode, amount);
+            rentals.add(rental);
+            selectedVehicle.setAvailable(false);
+
+            // Display rental receipt
+            System.out.println("\n=== Rental Receipt ===");
+            System.out.println(rental);
+            System.out.println("\nRental processed successfully!");
             
-            if (success) {
-                System.out.println("\nRental processed successfully!");
-                System.out.println("Rental details: " + rental);
-            } else {
-                System.out.println("\nFailed to process rental. Please try again.");
-            }
         } catch (NumberFormatException e) {
             System.out.println("Please enter a valid number.");
         } catch (Exception e) {
-            System.out.println("An error occurred: " + e.getMessage());
+            System.err.println("Error processing rental: " + e.getMessage());
         }
     }
 
-    private CustomerDetails getCustomerDetails() {
-        System.out.println("\nPlease enter customer details:");
-        
-        String name = getValidName();
-        String idNumber = getValidIdNumber();
-        String phone = getValidPhone();
-        
-        return new CustomerDetails(name, idNumber, phone);
-    }
-
-    private String getValidName() {
+    private String getValidCustomerName() {
         while (true) {
             try {
-                System.out.println("\nName Format:");
+                System.out.println("\nCustomer Name Format:");
                 System.out.println("- Must contain only letters and spaces");
+                System.out.println("- First letter of each word must be capital");
+                System.out.println("- No numbers or special characters allowed");
                 System.out.println("- Cannot be empty");
                 System.out.print("Enter customer name: ");
                 String name = scanner.nextLine().trim();
                 
-                if (name.matches("^[a-zA-Z ]+$") && !name.isEmpty()) {
-                    return name;
+                if (name.isEmpty()) {
+                    System.out.println("Error: Name is required and cannot be empty.");
+                    continue;
                 }
-                System.out.println("Invalid name. Please use only letters and spaces.");
+                
+                // Check if name contains only letters and spaces
+                if (!name.matches("^[a-zA-Z ]+$")) {
+                    System.out.println("Error: Name must contain only letters and spaces.");
+                    continue;
+                }
+                
+                // Convert to proper case (first letter of each word capital)
+                String[] words = name.split(" ");
+                StringBuilder properName = new StringBuilder();
+                for (String word : words) {
+                    if (!word.isEmpty()) {
+                        properName.append(word.substring(0, 1).toUpperCase())
+                                .append(word.substring(1).toLowerCase())
+                                .append(" ");
+                    }
+                }
+                
+                return properName.toString().trim();
             } catch (Exception e) {
                 System.out.println("An error occurred. Please try again.");
             }
         }
     }
 
-    private String getValidIdNumber() {
+    private String getValidCustomerId() {
         while (true) {
             try {
                 System.out.println("\nID Number Format:");
@@ -105,7 +132,7 @@ public class RentalSystem {
         }
     }
 
-    private String getValidPhone() {
+    private String getValidPhoneNumber() {
         while (true) {
             try {
                 System.out.println("\nPhone Number Format:");
@@ -118,6 +145,35 @@ public class RentalSystem {
                     return phone;
                 }
                 System.out.println("Invalid phone number. Please enter exactly 10 digits.");
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
+        }
+    }
+
+    private String getValidPaymentMode() {
+        while (true) {
+            try {
+                System.out.println("\nPayment Mode Options:");
+                System.out.println("1. Credit Card");
+                System.out.println("2. Debit Card");
+                System.out.println("3. Cash");
+                System.out.println("4. UPI");
+                System.out.print("Select payment mode (1-4): ");
+                
+                String input = scanner.nextLine().trim();
+                int choice = Integer.parseInt(input);
+                
+                switch (choice) {
+                    case 1: return "Credit Card";
+                    case 2: return "Debit Card";
+                    case 3: return "Cash";
+                    case 4: return "UPI";
+                    default:
+                        System.out.println("Invalid choice. Please select 1-4.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Please enter a valid number.");
             } catch (Exception e) {
                 System.out.println("An error occurred. Please try again.");
             }
