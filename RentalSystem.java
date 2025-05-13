@@ -1,48 +1,34 @@
+import java.sql.*;
 import java.util.Scanner;
 import java.util.List;
+import java.util.ArrayList;
 
 public class RentalSystem {
     private Scanner scanner;
-    private CustomLinkedList<Vehicle> vehicles;
-    private CustomLinkedList<Rental> rentals;
 
-    public RentalSystem(CustomLinkedList<Vehicle> vehicles, CustomLinkedList<Rental> rentals) {
+    public RentalSystem() {
         this.scanner = new Scanner(System.in);
-        this.vehicles = vehicles;
-        this.rentals = rentals;
     }
 
     public void startRentalProcess() {
         try {
-            if (vehicles.isEmpty()) {
-                System.out.println("\nNo vehicles available for rent.");
-                return;
-            }
-
-            System.out.println("\n=== Process Rental ===");
-            
-            // Get customer details with validation
-            String customerName = getValidCustomerName();
-            String customerId = getValidCustomerId();
-            String customerPhone = getValidPhoneNumber();
-
-            // Show available vehicles
-            System.out.println("\nAvailable Vehicles:");
-            List<Vehicle> availableVehicles = vehicles.toList().stream()
+            List<Vehicle> availableVehicles = Vehicle.getAllVehicles().stream()
                 .filter(Vehicle::isAvailable)
                 .toList();
 
             if (availableVehicles.isEmpty()) {
-                System.out.println("No vehicles are currently available.");
+                System.out.println("\nNo vehicles are currently available for rent.");
                 return;
             }
 
+            // Show available vehicles
+            System.out.println("\nAvailable Vehicles:");
             for (int i = 0; i < availableVehicles.size(); i++) {
                 System.out.printf("%d. %s%n", i + 1, availableVehicles.get(i));
             }
 
             // Get vehicle selection
-            System.out.print("\nEnter the number of the vehicle to rent: ");
+            System.out.print("\nEnter the number of the vehicle you want to rent: ");
             int vehicleIndex = Integer.parseInt(scanner.nextLine().trim()) - 1;
             
             if (vehicleIndex < 0 || vehicleIndex >= availableVehicles.size()) {
@@ -51,20 +37,69 @@ public class RentalSystem {
             }
 
             Vehicle selectedVehicle = availableVehicles.get(vehicleIndex);
-            
-            // Get payment details
+
+            // Get customer details
+            String customerName = getValidCustomerName();
+            String customerPhone = getValidCustomerPhone();
+            String customerEmail = getValidCustomerEmail();
+            String customerAddress = getValidCustomerAddress();
+            String licenseNumber = getValidLicenseNumber();
+
+            // Get rental details
             String paymentMode = getValidPaymentMode();
-            double amount = selectedVehicle.getPrice();
+            double amount = selectedVehicle.getRentPerDay();
 
-            // Create and add rental
-            Rental rental = new Rental(customerName, customerId, customerPhone, selectedVehicle, paymentMode, amount);
-            rentals.add(rental);
-            selectedVehicle.setAvailable(false);
+            // Create rental record in database
+            String sql = "INSERT INTO rentals (vehicle_id, customer_id, rent_date, return_date, total_amount, status) " +
+                        "VALUES (?, ?, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 1 DAY), ?, 'ACTIVE')";
+            
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                
+                // First, insert customer
+                String customerSql = "INSERT INTO customers (name, phone, email, address, license_number) VALUES (?, ?, ?, ?, ?)";
+                int customerId;
+                try (PreparedStatement customerStmt = conn.prepareStatement(customerSql, Statement.RETURN_GENERATED_KEYS)) {
+                    customerStmt.setString(1, customerName);
+                    customerStmt.setString(2, customerPhone);
+                    customerStmt.setString(3, customerEmail);
+                    customerStmt.setString(4, customerAddress);
+                    customerStmt.setString(5, licenseNumber);
+                    customerStmt.executeUpdate();
+                    
+                    try (ResultSet rs = customerStmt.getGeneratedKeys()) {
+                        if (rs.next()) {
+                            customerId = rs.getInt(1);
+                        } else {
+                            throw new SQLException("Failed to get customer ID");
+                        }
+                    }
+                }
 
-            // Display rental receipt
-            System.out.println("\n=== Rental Receipt ===");
-            System.out.println(rental);
-            System.out.println("\nRental processed successfully!");
+                // Then, insert rental
+                pstmt.setInt(1, selectedVehicle.getId());
+                pstmt.setInt(2, customerId);
+                pstmt.setDouble(3, amount);
+                pstmt.executeUpdate();
+
+                // Update vehicle availability
+                String updateVehicleSql = "UPDATE vehicles SET is_available = false WHERE id = ?";
+                try (PreparedStatement updateStmt = conn.prepareStatement(updateVehicleSql)) {
+                    updateStmt.setInt(1, selectedVehicle.getId());
+                    updateStmt.executeUpdate();
+                }
+
+                System.out.println("\nRental processed successfully!");
+                System.out.println("Rental details:");
+                System.out.println("Customer: " + customerName);
+                System.out.println("Vehicle: " + selectedVehicle.getVehicleName());
+                System.out.println("Amount: $" + amount);
+                System.out.println("Payment Mode: " + paymentMode);
+                
+            } catch (SQLException e) {
+                System.err.println("Error processing rental: " + e.getMessage());
+                e.printStackTrace();
+            }
             
         } catch (NumberFormatException e) {
             System.out.println("Please enter a valid number.");
@@ -89,13 +124,11 @@ public class RentalSystem {
                     continue;
                 }
                 
-                // Check if name contains only letters and spaces
                 if (!name.matches("^[a-zA-Z ]+$")) {
                     System.out.println("Error: Name must contain only letters and spaces.");
                     continue;
                 }
                 
-                // Convert to proper case (first letter of each word capital)
                 String[] words = name.split(" ");
                 StringBuilder properName = new StringBuilder();
                 for (String word : words) {
@@ -113,26 +146,7 @@ public class RentalSystem {
         }
     }
 
-    private String getValidCustomerId() {
-        while (true) {
-            try {
-                System.out.println("\nID Number Format:");
-                System.out.println("- Must be exactly 5 digits");
-                System.out.println("- Cannot be empty");
-                System.out.print("Enter customer ID number: ");
-                String idNumber = scanner.nextLine().trim();
-                
-                if (idNumber.matches("^\\d{5}$")) {
-                    return idNumber;
-                }
-                System.out.println("Invalid ID number. Please enter exactly 5 digits.");
-            } catch (Exception e) {
-                System.out.println("An error occurred. Please try again.");
-            }
-        }
-    }
-
-    private String getValidPhoneNumber() {
+    private String getValidCustomerPhone() {
         while (true) {
             try {
                 System.out.println("\nPhone Number Format:");
@@ -145,6 +159,64 @@ public class RentalSystem {
                     return phone;
                 }
                 System.out.println("Invalid phone number. Please enter exactly 10 digits.");
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
+        }
+    }
+
+    private String getValidCustomerEmail() {
+        while (true) {
+            try {
+                System.out.println("\nEmail Format:");
+                System.out.println("- Must be a valid email address");
+                System.out.println("- Cannot be empty");
+                System.out.print("Enter customer email: ");
+                String email = scanner.nextLine().trim();
+                
+                if (email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+                    return email;
+                }
+                System.out.println("Invalid email format. Please enter a valid email address.");
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
+        }
+    }
+
+    private String getValidCustomerAddress() {
+        while (true) {
+            try {
+                System.out.println("\nAddress Format:");
+                System.out.println("- Can contain letters, numbers, spaces, and common punctuation");
+                System.out.println("- Cannot be empty");
+                System.out.print("Enter customer address: ");
+                String address = scanner.nextLine().trim();
+                
+                if (!address.isEmpty()) {
+                    return address;
+                }
+                System.out.println("Address cannot be empty.");
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
+        }
+    }
+
+    private String getValidLicenseNumber() {
+        while (true) {
+            try {
+                System.out.println("\nLicense Number Format:");
+                System.out.println("- Must be unique");
+                System.out.println("- Can contain letters, numbers, and spaces");
+                System.out.println("- Cannot be empty");
+                System.out.print("Enter license number: ");
+                String license = scanner.nextLine().trim();
+                
+                if (!license.isEmpty()) {
+                    return license;
+                }
+                System.out.println("License number cannot be empty.");
             } catch (Exception e) {
                 System.out.println("An error occurred. Please try again.");
             }

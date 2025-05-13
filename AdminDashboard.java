@@ -1,17 +1,15 @@
+import java.sql.*;
 import java.util.Scanner;
 import java.util.List;
+import java.util.ArrayList;
 
 public class AdminDashboard {
     private Scanner scanner;
-    private CustomLinkedList<Vehicle> vehicles;
-    private CustomLinkedList<Rental> rentals;
     private RentalSystem rentalSystem;
 
     public AdminDashboard() {
         this.scanner = new Scanner(System.in);
-        this.vehicles = new CustomLinkedList<>();
-        this.rentals = new CustomLinkedList<>();
-        this.rentalSystem = new RentalSystem(vehicles, rentals);
+        this.rentalSystem = new RentalSystem();
     }
 
     public void showDashboard() {
@@ -29,8 +27,9 @@ public class AdminDashboard {
                 System.out.println("7. View first vehicle");
                 System.out.println("8. View last vehicle");
                 System.out.println("9. Move vehicle to front");
-                System.out.println("10. Exit");
-                System.out.print("Please choose an option (1-10): ");
+                System.out.println("10. Update vehicle");
+                System.out.println("11. Exit");
+                System.out.print("Please choose an option (1-11): ");
 
                 String input = scanner.nextLine().trim();
                 int choice = Integer.parseInt(input);
@@ -64,11 +63,14 @@ public class AdminDashboard {
                         moveVehicleToFront();
                         break;
                     case 10:
+                        updateVehicle();
+                        break;
+                    case 11:
                         exit = true;
                         System.out.println("Thank you for using the Admin Dashboard. Goodbye!");
                         break;
                     default:
-                        System.out.println("Invalid option. Please choose between 1-10.");
+                        System.out.println("Invalid option. Please choose between 1-11.");
                 }
             } catch (NumberFormatException e) {
                 System.out.println("Please enter a valid number.");
@@ -81,6 +83,7 @@ public class AdminDashboard {
 
     private void viewAllVehicles() {
         try {
+            List<Vehicle> vehicles = Vehicle.getAllVehicles();
             if (vehicles.isEmpty()) {
                 System.out.println("\nNo vehicles available.");
                 return;
@@ -102,20 +105,62 @@ public class AdminDashboard {
             System.out.println("\n=== Add New Vehicle ===");
             System.out.println("Please follow the format instructions for each field.");
             
-            String type = getValidVehicleType();
-            String make = getValidMake();
-            String model = getValidModel();
-            double price = getValidPrice();
-            String location = getValidLocation();
+            String vehicleNumber = getValidVehicleNumber();
+            String vehicleName = getValidVehicleName();
+            String vehicleType = getValidVehicleType();
+            int seatingCapacity = getValidSeatingCapacity();
+            double rentPerDay = getValidPrice();
 
-            Vehicle newVehicle = new Vehicle(type, make, model, price, location);
-            
-            vehicles.addFirst(newVehicle);
+            Vehicle newVehicle = new Vehicle(vehicleNumber, vehicleName, vehicleType, seatingCapacity, rentPerDay);
+            Vehicle.addVehicle(newVehicle);
 
             System.out.println("\nVehicle added successfully!");
             System.out.println("Vehicle details: " + newVehicle);
         } catch (Exception e) {
             System.err.println("Error adding vehicle: " + e.getMessage());
+        }
+    }
+
+    private String getValidVehicleNumber() {
+        while (true) {
+            try {
+                System.out.println("\nVehicle Number Format:");
+                System.out.println("- Must be unique");
+                System.out.println("- Can contain letters, numbers, and spaces");
+                System.out.println("- Cannot be empty");
+                System.out.print("Enter vehicle number: ");
+                String number = scanner.nextLine().trim();
+                
+                if (number.isEmpty()) {
+                    System.out.println("Error: Vehicle number is required and cannot be empty.");
+                    continue;
+                }
+                
+                return number;
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
+        }
+    }
+
+    private String getValidVehicleName() {
+        while (true) {
+            try {
+                System.out.println("\nVehicle Name Format:");
+                System.out.println("- Must contain only letters, numbers, and spaces");
+                System.out.println("- Cannot be empty");
+                System.out.print("Enter vehicle name: ");
+                String name = scanner.nextLine().trim();
+                
+                if (name.isEmpty()) {
+                    System.out.println("Error: Vehicle name is required and cannot be empty.");
+                    continue;
+                }
+                
+                return name;
+            } catch (Exception e) {
+                System.out.println("An error occurred. Please try again.");
+            }
         }
     }
 
@@ -128,9 +173,7 @@ public class AdminDashboard {
                 System.out.print("Enter vehicle type: ");
                 String type = scanner.nextLine().trim();
                 
-                // Convert to proper case (first letter capital, rest lowercase)
                 if (type.matches("^(?i)(car|suv|truck|van|motorcycle)$")) {
-                    // Convert to proper case
                     return type.substring(0, 1).toUpperCase() + type.substring(1).toLowerCase();
                 }
                 System.out.println("Invalid vehicle type. Please choose from the list.");
@@ -140,54 +183,22 @@ public class AdminDashboard {
         }
     }
 
-    private String getValidMake() {
+    private int getValidSeatingCapacity() {
         while (true) {
             try {
-                System.out.println("\nMake Format:");
-                System.out.println("- Must contain only letters and spaces");
-                System.out.println("- Cannot be empty");
-                System.out.println("- No numbers or special characters allowed");
-                System.out.print("Enter vehicle make: ");
-                String make = scanner.nextLine().trim();
+                System.out.println("\nSeating Capacity Format:");
+                System.out.println("- Must be a positive number");
+                System.out.println("- Maximum 50 seats");
+                System.out.print("Enter seating capacity: ");
+                String input = scanner.nextLine().trim();
+                int capacity = Integer.parseInt(input);
                 
-                if (make.isEmpty()) {
-                    System.out.println("Error: Make is required and cannot be empty.");
-                    continue;
+                if (capacity > 0 && capacity <= 50) {
+                    return capacity;
                 }
-                
-                if (!make.matches("^[a-zA-Z ]+$")) {
-                    System.out.println("Error: Make must contain only letters and spaces.");
-                    continue;
-                }
-                
-                return make;
-            } catch (Exception e) {
-                System.out.println("An error occurred. Please try again.");
-            }
-        }
-    }
-
-    private String getValidModel() {
-        while (true) {
-            try {
-                System.out.println("\nModel Format:");
-                System.out.println("- Must contain only letters, numbers, and spaces");
-                System.out.println("- Cannot be empty");
-                System.out.println("- No special characters allowed");
-                System.out.print("Enter vehicle model: ");
-                String model = scanner.nextLine().trim();
-                
-                if (model.isEmpty()) {
-                    System.out.println("Error: Model is required and cannot be empty.");
-                    continue;
-                }
-                
-                if (!model.matches("^[a-zA-Z0-9 ]+$")) {
-                    System.out.println("Error: Model must contain only letters, numbers, and spaces.");
-                    continue;
-                }
-                
-                return model;
+                System.out.println("Seating capacity must be between 1 and 50. Please try again.");
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid number format. Please enter a valid number.");
             } catch (Exception e) {
                 System.out.println("An error occurred. Please try again.");
             }
@@ -200,7 +211,7 @@ public class AdminDashboard {
                 System.out.println("\nPrice Format:");
                 System.out.println("- Must be a positive number");
                 System.out.println("- Can include up to 2 decimal places");
-                System.out.print("Enter vehicle price: ");
+                System.out.print("Enter vehicle price per day: ");
                 String input = scanner.nextLine().trim();
                 double price = Double.parseDouble(input);
                 
@@ -216,27 +227,9 @@ public class AdminDashboard {
         }
     }
 
-    private String getValidLocation() {
-        while (true) {
-            try {
-                System.out.println("\nLocation Format:");
-                System.out.println("- Must contain only letters, numbers, and spaces");
-                System.out.println("- Cannot be empty");
-                System.out.print("Enter vehicle location: ");
-                String location = scanner.nextLine().trim();
-                
-                if (!location.isEmpty()) {
-                    return location;
-                }
-                System.out.println("Location cannot be empty.");
-            } catch (Exception e) {
-                System.out.println("An error occurred. Please try again.");
-            }
-        }
-    }
-
     private void removeVehicle() {
         try {
+            List<Vehicle> vehicles = Vehicle.getAllVehicles();
             if (vehicles.isEmpty()) {
                 System.out.println("\nNo vehicles in the system.");
                 return;
@@ -258,10 +251,14 @@ public class AdminDashboard {
             }
 
             Vehicle selectedVehicle = vehicles.get(vehicleIndex);
-            if (vehicles.remove(selectedVehicle)) {
+            
+            // Delete from database
+            String sql = "DELETE FROM vehicles WHERE id = ?";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, selectedVehicle.getId());
+                pstmt.executeUpdate();
                 System.out.println("\nVehicle removed successfully!");
-            } else {
-                System.out.println("\nFailed to remove vehicle.");
             }
         } catch (NumberFormatException e) {
             System.out.println("Please enter a valid number.");
@@ -272,16 +269,32 @@ public class AdminDashboard {
 
     private void viewRecentRentals() {
         try {
-            if (rentals.isEmpty()) {
-                System.out.println("\nNo rentals found.");
-                return;
-            }
+            String sql = "SELECT r.*, v.vehicle_name, c.name as customer_name " +
+                        "FROM rentals r " +
+                        "JOIN vehicles v ON r.vehicle_id = v.id " +
+                        "JOIN customers c ON r.customer_id = c.id " +
+                        "ORDER BY r.rent_date DESC LIMIT 5";
+            
+            try (Connection conn = DatabaseConnection.getConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+                
+                if (!rs.next()) {
+                    System.out.println("\nNo rentals found.");
+                    return;
+                }
 
-            System.out.println("\n=== Recent Rentals ===");
-            int count = Math.min(5, rentals.size());
-            for (int i = 0; i < count; i++) {
-                Rental rental = rentals.get(rentals.size() - 1 - i);
-                System.out.printf("%d. %s%n", i + 1, rental);
+                System.out.println("\n=== Recent Rentals ===");
+                int count = 1;
+                do {
+                    System.out.printf("%d. Customer: %s, Vehicle: %s, Date: %s, Amount: $%.2f%n",
+                        count++,
+                        rs.getString("customer_name"),
+                        rs.getString("vehicle_name"),
+                        rs.getDate("rent_date"),
+                        rs.getDouble("total_amount")
+                    );
+                } while (rs.next() && count <= 5);
             }
         } catch (Exception e) {
             System.err.println("Error viewing recent rentals: " + e.getMessage());
@@ -290,23 +303,19 @@ public class AdminDashboard {
 
     private void makeVehicleAvailable() {
         try {
-            if (vehicles.isEmpty()) {
-                System.out.println("\nNo vehicles in the system.");
+            List<Vehicle> vehicles = Vehicle.getAllVehicles();
+            List<Vehicle> unavailableVehicles = vehicles.stream()
+                .filter(v -> !v.isAvailable())
+                .toList();
+
+            if (unavailableVehicles.isEmpty()) {
+                System.out.println("\nNo unavailable vehicles found.");
                 return;
             }
 
             System.out.println("\n=== Make Vehicle Available ===");
             System.out.println("Select a vehicle to make available:");
             
-            List<Vehicle> unavailableVehicles = vehicles.toList().stream()
-                .filter(v -> !v.isAvailable())
-                .toList();
-
-            if (unavailableVehicles.isEmpty()) {
-                System.out.println("No unavailable vehicles found.");
-                return;
-            }
-
             for (int i = 0; i < unavailableVehicles.size(); i++) {
                 System.out.printf("%d. %s%n", i + 1, unavailableVehicles.get(i));
             }
@@ -320,9 +329,15 @@ public class AdminDashboard {
             }
 
             Vehicle selectedVehicle = unavailableVehicles.get(vehicleIndex);
-            selectedVehicle.setAvailable(true);
-            System.out.println("\nVehicle is now available for rent!");
             
+            // Update in database
+            String sql = "UPDATE vehicles SET is_available = true WHERE id = ?";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, selectedVehicle.getId());
+                pstmt.executeUpdate();
+                System.out.println("\nVehicle is now available for rent!");
+            }
         } catch (NumberFormatException e) {
             System.out.println("Please enter a valid number.");
         } catch (Exception e) {
@@ -332,14 +347,28 @@ public class AdminDashboard {
 
     private void viewFirstVehicle() {
         try {
-            if (vehicles.isEmpty()) {
-                System.out.println("\nNo vehicles in the system.");
-                return;
+            String sql = "SELECT * FROM vehicles ORDER BY id ASC LIMIT 1";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+                
+                if (rs.next()) {
+                    Vehicle vehicle = new Vehicle(
+                        rs.getString("vehicle_number"),
+                        rs.getString("vehicle_name"),
+                        rs.getString("vehicle_type"),
+                        rs.getInt("seating_capacity"),
+                        rs.getDouble("rent_per_day")
+                    );
+                    vehicle.setId(rs.getInt("id"));
+                    vehicle.setAvailable(rs.getBoolean("is_available"));
+                    
+                    System.out.println("\n=== First Vehicle in Database ===");
+                    System.out.println(vehicle);
+                } else {
+                    System.out.println("\nNo vehicles in the system.");
+                }
             }
-
-            Vehicle firstVehicle = vehicles.getFirst();
-            System.out.println("\n=== First Vehicle in List ===");
-            System.out.println(firstVehicle);
         } catch (Exception e) {
             System.err.println("Error viewing first vehicle: " + e.getMessage());
         }
@@ -347,14 +376,28 @@ public class AdminDashboard {
 
     private void viewLastVehicle() {
         try {
-            if (vehicles.isEmpty()) {
-                System.out.println("\nNo vehicles in the system.");
-                return;
+            String sql = "SELECT * FROM vehicles ORDER BY id DESC LIMIT 1";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 Statement stmt = conn.createStatement();
+                 ResultSet rs = stmt.executeQuery(sql)) {
+                
+                if (rs.next()) {
+                    Vehicle vehicle = new Vehicle(
+                        rs.getString("vehicle_number"),
+                        rs.getString("vehicle_name"),
+                        rs.getString("vehicle_type"),
+                        rs.getInt("seating_capacity"),
+                        rs.getDouble("rent_per_day")
+                    );
+                    vehicle.setId(rs.getInt("id"));
+                    vehicle.setAvailable(rs.getBoolean("is_available"));
+                    
+                    System.out.println("\n=== Last Vehicle in Database ===");
+                    System.out.println(vehicle);
+                } else {
+                    System.out.println("\nNo vehicles in the system.");
+                }
             }
-
-            Vehicle lastVehicle = vehicles.getLast();
-            System.out.println("\n=== Last Vehicle in List ===");
-            System.out.println(lastVehicle);
         } catch (Exception e) {
             System.err.println("Error viewing last vehicle: " + e.getMessage());
         }
@@ -362,6 +405,7 @@ public class AdminDashboard {
 
     private void moveVehicleToFront() {
         try {
+            List<Vehicle> vehicles = Vehicle.getAllVehicles();
             if (vehicles.isEmpty()) {
                 System.out.println("\nNo vehicles in the system.");
                 return;
@@ -383,14 +427,121 @@ public class AdminDashboard {
             }
 
             Vehicle selectedVehicle = vehicles.get(vehicleIndex);
-            vehicles.remove(selectedVehicle);
-            vehicles.addFirst(selectedVehicle);
-            System.out.println("\nVehicle moved to front successfully!");
             
+            // Update the vehicle's ID to be the minimum ID in the database
+            String sql = "UPDATE vehicles SET id = (SELECT MIN(id) - 1 FROM vehicles) WHERE id = ?";
+            try (Connection conn = DatabaseConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setInt(1, selectedVehicle.getId());
+                pstmt.executeUpdate();
+                System.out.println("\nVehicle moved to front successfully!");
+            }
         } catch (NumberFormatException e) {
             System.out.println("Please enter a valid number.");
         } catch (Exception e) {
             System.err.println("Error moving vehicle: " + e.getMessage());
+        }
+    }
+
+    private void updateVehicle() {
+        try {
+            List<Vehicle> vehicles = Vehicle.getAllVehicles();
+            if (vehicles.isEmpty()) {
+                System.out.println("\nNo vehicles available to update.");
+                return;
+            }
+
+            System.out.println("\n=== Update Vehicle ===");
+            System.out.println("Select a vehicle to update:");
+            
+            for (int i = 0; i < vehicles.size(); i++) {
+                Vehicle vehicle = vehicles.get(i);
+                String status = vehicle.isAvailable() ? "Available" : "Not Available";
+                System.out.printf("%d. %s (Status: %s)%n", i + 1, vehicle, status);
+            }
+
+            System.out.print("\nEnter the number of the vehicle to update: ");
+            int vehicleIndex = Integer.parseInt(scanner.nextLine().trim()) - 1;
+            
+            if (vehicleIndex < 0 || vehicleIndex >= vehicles.size()) {
+                System.out.println("Invalid vehicle selection.");
+                return;
+            }
+
+            Vehicle selectedVehicle = vehicles.get(vehicleIndex);
+            System.out.println("\nCurrent vehicle details: " + selectedVehicle);
+            System.out.println("\nEnter new details (press Enter to keep current value):");
+
+            // Get updated vehicle details
+            System.out.print("Vehicle Name [" + selectedVehicle.getVehicleName() + "]: ");
+            String newName = scanner.nextLine().trim();
+            if (newName.isEmpty()) {
+                newName = selectedVehicle.getVehicleName();
+            }
+
+            System.out.print("Vehicle Type [" + selectedVehicle.getVehicleType() + "]: ");
+            String newType = scanner.nextLine().trim();
+            if (newType.isEmpty()) {
+                newType = selectedVehicle.getVehicleType();
+            } else {
+                while (!newType.matches("^(?i)(car|suv|truck|van|motorcycle)$")) {
+                    System.out.println("Invalid vehicle type. Please choose from: Car, SUV, Truck, Van, Motorcycle");
+                    System.out.print("Vehicle Type [" + selectedVehicle.getVehicleType() + "]: ");
+                    newType = scanner.nextLine().trim();
+                    if (newType.isEmpty()) {
+                        newType = selectedVehicle.getVehicleType();
+                        break;
+                    }
+                }
+                newType = newType.substring(0, 1).toUpperCase() + newType.substring(1).toLowerCase();
+            }
+
+            System.out.print("Seating Capacity [" + selectedVehicle.getSeatingCapacity() + "]: ");
+            String seatingInput = scanner.nextLine().trim();
+            int newSeating = selectedVehicle.getSeatingCapacity();
+            if (!seatingInput.isEmpty()) {
+                try {
+                    int capacity = Integer.parseInt(seatingInput);
+                    if (capacity > 0 && capacity <= 50) {
+                        newSeating = capacity;
+                    } else {
+                        System.out.println("Invalid seating capacity. Keeping current value.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid number format. Keeping current value.");
+                }
+            }
+
+            System.out.print("Rent per Day [" + selectedVehicle.getRentPerDay() + "]: ");
+            String rentInput = scanner.nextLine().trim();
+            double newRent = selectedVehicle.getRentPerDay();
+            if (!rentInput.isEmpty()) {
+                try {
+                    double rent = Double.parseDouble(rentInput);
+                    if (rent > 0) {
+                        newRent = rent;
+                    } else {
+                        System.out.println("Invalid rent amount. Keeping current value.");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid number format. Keeping current value.");
+                }
+            }
+
+            // Update the vehicle
+            selectedVehicle.setVehicleName(newName);
+            selectedVehicle.setVehicleType(newType);
+            selectedVehicle.setSeatingCapacity(newSeating);
+            selectedVehicle.setRentPerDay(newRent);
+            
+            // Save the updated vehicle to the database
+            Vehicle.updateVehicle(selectedVehicle);
+            
+            System.out.println("\nVehicle updated successfully!");
+            System.out.println("Updated vehicle details: " + selectedVehicle);
+            
+        } catch (Exception e) {
+            System.err.println("Error updating vehicle: " + e.getMessage());
         }
     }
 } 
